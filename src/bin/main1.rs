@@ -1,0 +1,17 @@
+use std::cell::UnsafeCell;
+
+use tokio::pin;
+
+async fn my_async_fn() {
+    // async logic here
+}
+
+#[tokio::main]
+async fn main() {
+    let future = my_async_fn();
+    pin!(future);
+
+    (&mut future).await;
+
+    let x = UnsafeCell::new(String::from("xxx"));
+}
