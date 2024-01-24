@@ -21,7 +21,7 @@ impl TimerFuture {
         }));
 
         let shared_state_cloned = shared_state.clone();
-
+        // note: 存在缺陷！！！不应该在new之后立即执行以下代码，而是应该在第一次poll之后
         thread::spawn(move || {
             thread::sleep(duration);
             println!("时间到");

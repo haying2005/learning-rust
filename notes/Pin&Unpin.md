@@ -28,8 +28,8 @@ struct AsyncFuture {
 2. Pin<P>不是特征，而是一个结构体,P是一个指针类型/或智能指针,例如Pin<&mut T> , Pin<&T> , Pin<Box<T>> ，都能确保T不会被移动。
 3. Pin<P>被Pin住的值指的是指针P指向的值（确保P指向的值不会被移动），而不是指针P本身；
 4. 被Pin住的值必须实现!Unpin特征才有意义；
-5. 接上一条，例如：Pin<&mut u8> 跟 &mut u8 实际上并无区别，一样可以被移动。因为u8类型并没有实现!Unpin特征
-6. 实现了!Unpin特征的类型被Pin住之后，编译器利用类型系统禁止某些操作，例如获得 T和&mut T，但是&T是允许的（它无法造成T被move）
+5. 接上一条，例如：Pin<&mut u8> 跟 &mut u8 实际上并无区别，可以通过Pin<&mut u8>获取&mut u8。因为u8类型并没有实现!Unpin特征
+6. 实现了!Unpin特征的类型被Pin住之后，编译器利用类型系统禁止某些操作(只对T:!Unpin进行约束)，例如获得 T和&mut T，但是&T是允许的（它无法造成T被move）
 7. 上一条中被禁止的行为可以通过unsafe被允许
 7. Pin<P>本身是Unpin的(几乎)
 
@@ -42,9 +42,9 @@ struct AsyncFuture {
 - 若 T: Unpin ( Rust 类型的默认实现)，那么 Pin<'a, T> 跟 &'a mut T 完全相同，也就是 Pin 将没有任何效果, 该移动还是照常移动
 - 绝大多数标准库类型都实现了 Unpin ，事实上，对于 Rust 中你能遇到的绝大多数类型，该结论依然成立 ，其中一个例外就是：async/await 生成的 Future 没有实现 Unpin
 - 你可以通过以下方法为自己的类型添加 !Unpin 约束：
-- 使用文中提到的 std::marker::PhantomPinned
-- 使用nightly 版本下的 feature flag
-- 可以将值固定到栈上，也可以固定到堆上
-- 将 !Unpin 值固定到栈上需要使用 unsafe
-- 将 !Unpin 值固定到堆上无需 unsafe ，可以通过 Box::pin 来简单的实现
+    - 使用文中提到的 std::marker::PhantomPinned
+    - 使用nightly 版本下的 feature flag
+- 可以将值固定到栈上，也可以固定到堆上:
+    - 将 !Unpin 值固定到栈上需要使用 unsafe
+    - 将 !Unpin 值固定到堆上无需 unsafe ，可以通过 Box::pin 来简单的实现
 - 当固定类型 T: !Unpin 时，你需要保证数据从被固定到被 drop 这段时期内，其内存不会变得非法或者被重用

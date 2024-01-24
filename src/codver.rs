@@ -43,6 +43,7 @@ impl Codvar {
         self.num_waiters.fetch_add(1, Ordering::Relaxed);
 
         drop(mutex_guard);
+        // 不完美：wait可能因为counter的增加而不进入block状态；但是同时notify_one会导致另一个阻塞线程被唤醒，从而导致两个线程抢互斥锁
         wait(&self.counter, cur_counter);
         // wait之后的操作之可能在wait返回之后才会执行，不可能发生在wait之前读到sub后的结果0，导致wake不触发从而引起上面的wait永远无法唤醒
         self.num_waiters.fetch_sub(1, Ordering::Relaxed);
@@ -80,6 +81,7 @@ mod test {
         }
 
         println!("{}", wakeups);
+        // 因为codvar会有虚假唤醒的可能性，所以唤醒次数可能大于1，但不应该太大
         assert!(wakeups < 10);
 
     }

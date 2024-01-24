@@ -3,7 +3,7 @@ use std::{
         mpsc::{sync_channel, Receiver, SyncSender},
         Arc, Mutex,
     },
-    task::Context, cell::UnsafeCell, pin::Pin,
+    task::Context, cell::UnsafeCell, pin::Pin, rc::Rc,
 };
 
 use futures::{
@@ -24,6 +24,12 @@ struct Task {
     task_sender: SyncSender<Arc<Task>>,
 }
 
+impl Drop for Task {
+    fn drop(&mut self) {
+        println!("task drop")
+    }
+}
+
 pub struct Spawner {
     task_sender: SyncSender<Arc<Task>>,
 }
@@ -37,7 +43,7 @@ impl Spawner {
     // 创建新任务，并将其扔进队列进行第一次`poll`调用
     pub fn spawn(&self, future: impl Future<Output = ()> + Send + 'static) {
         // pin/box a future
-        let future = future.boxed();
+        let future: Pin<Box<dyn Future<Output = ()> + Send>> = future.boxed();
         let task = Task {
             /// so we need to use the `Mutex` to prove thread-safety. A production
             /// executor would not need this, and could use `UnsafeCell` instead.
@@ -67,7 +73,7 @@ impl Excutor {
     pub fn run(&self) {
         // 不停的从task队列中获取状态为[`ready`]的task进行[`poll`]调用
         while let Ok(task) = self.ready_queue.recv() {
-            println!("recv a task");
+            println!("recv a task, ref cnt {}", Arc::strong_count(&task));
             let mut future_slot = task.future.lock().unwrap();
             if let Some(mut future) = future_slot.take() {
                 let waker = waker_ref(&task); // 智能指针，deref-> &Waker

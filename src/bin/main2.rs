@@ -1,6 +1,8 @@
 use std::marker::PhantomPinned;
 use std::pin::Pin;
 use std::ptr::NonNull;
+use std::sync::Mutex;
+use std::thread;
 
 // 下面是一个自引用数据结构体，因为 slice 字段是一个指针，指向了 data 字段
 // 我们无法使用普通引用来实现，因为违背了 Rust 的编译规则
@@ -63,6 +65,7 @@ fn main() {
     // let mut new_unmoved = Unmovable::new("world".to_string());
     // std::mem::swap(&mut *still_unmoved, &mut *new_unmoved);
 }
+
 
 
 

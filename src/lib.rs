@@ -6,13 +6,19 @@ pub mod one_shot2;
 pub mod arc;
 pub mod arc1;
 pub mod arc2;
-pub mod mutex;
-pub mod mutex1;
-pub mod mutex2;
-pub mod codver;
+// pub mod mutex;
+// pub mod mutex1;
+// pub mod mutex2;
+// pub mod codver;
+// pub mod rwlock;
+// pub mod rwlock1;
+// pub mod rwlock2; // 优化：避免写饥饿
 
 pub mod TimerFuture;
 pub mod Excutor;
+pub mod Excutor2;
+
+pub mod minis_redis;
 pub struct Post {
     state: Option<Box<dyn State>>,
     content: String,

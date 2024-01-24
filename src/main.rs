@@ -1,4 +1,5 @@
 use std::cell::{RefCell, UnsafeCell, Cell};
+use std::fmt::{Display, Debug};
 use std::mem::MaybeUninit;
 use std::ops::Deref;
 use std::rc::Rc;
@@ -12,6 +13,16 @@ use hello_world::one_shot1::OneShot;
 use hello_world::spin_lock::SpinLock;
 
 
+const fn test(x: u32) -> &'static str {
+    let x = [1,2,3];
+    ""
+}
+static ii: &str = test(12);
+
+const a:u32 = 12;
+const b:i32 = [1,2,3][0];
+
+const m: Mutex<u32> = Mutex::new(0);
 
 
 fn get_data() -> &'static Vec<i32> {
