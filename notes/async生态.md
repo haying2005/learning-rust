@@ -31,7 +31,7 @@
 #### 关于future
 - future是一个状态机，保存着当前执行到哪一步的所有状态
 - future是懒惰的，只有对他执行poll，它的状态才会推进
-- future返回ready表示完成，.await操作也会返回相应的值，此时future被moved，将变得不再可用
+- future返回ready表示完成，.await操作也会返回相应的值，此时future被moved，将变得不再可用(不能对一个已经完成的future调用poll)
 - future内部需要保存并记录此次poll传递的waker，以便适当时机触发wake
 - waker通常满足Send + Sync，以便于future在不同线程之间传递
 - 除了第一次的poll，后续的poll操作都必须future内部调用waker才会触发，因为只有内部才知道何时该poll(资源、数据准备就绪)，否则只会是无用的poll
@@ -186,7 +186,7 @@ async fn main() -> io::Result<()> {
 
 
 #### 循环中多次select同一个future(引用)
-- 多次select同一个future必须是一个future引用(该引用类型自身也必须实现Future)，否则第一次select它就被moved进到select内部的结构体中
+- 多次select同一个future必须是一个future引用(该引用类型自身也必须实现Future，一般是不可变引用)，否则第一次select它就被moved进到select内部的结构体中
 - 接上一条，await一个引用，该引用指向的对象必须被pinned或者满足Unpin
 - 补充：如果T:Future, 则&mut T也实现了Future，但是&T没有实现(个人猜测是因为会造成重复await)
 ```rust
@@ -219,3 +219,19 @@ async fn main() {
 - tokio::spawn会产生一个新的task(异步运行时调度的基本单位)，而select的各个branch只会在一个Task内部
 - tokio::spawn产生的Task可能会在多个线程中并行执行，因此他们会和产生一个新线程有相同的限制：必须拥有数据(no borrowing)
 - select的各个branch不会并行执行，也不会有no borrowing的限制
+
+
+#### Streams特征
+- 需要实现poll_next方法，能够产生多个值，当下一个值还没准备好时返回Poll::Pending, 当准备好时返回Poll::Ready(Some(T)),当不再产生新的值时返回Poll::Ready(None)
+- 代表能够异步产生多个值的对象，是std::iter::Iterator的异步版本，能够在async函数中被迭代
+- 类似std::iter::Iterator，它们能够通过迭代适配器(iterator adaptor)产生新的Stream或者被消费适配器消费(consuming adaptors)
+- 返回Poll::Ready(None)时代表不再产生新的值，理论上来说再调用poll_next时应该报错
+
+#### 迭代Stream
+- 通常不直接调用poll_next方法，而是使用tokio_stream::StreamExt中的next方法
+- 调用next方法时需要UnPin，如果不满足则需要先Pin住
+- 通常通过while let Some(val) = stream.next().await方式迭代，所以只能在async中
+
+#### 实现一个stream
+1. 可以通过手动实现特征的poll_next方法，和future类似，也需要保存Waker并负责在值准备好时触发wake；当然也可以把waker直接传给内部的steam或future，由他们负责触发
+2. 也可以通过generator语法: async + yield, rust语言目前不支持，可以使用过渡方案：async-stream的stream!宏

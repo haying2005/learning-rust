@@ -48,3 +48,38 @@ struct AsyncFuture {
     - 将 !Unpin 值固定到栈上需要使用 unsafe
     - 将 !Unpin 值固定到堆上无需 unsafe ，可以通过 Box::pin 来简单的实现
 - 当固定类型 T: !Unpin 时，你需要保证数据从被固定到被 drop 这段时期内，其内存不会变得非法或者被重用
+
+
+### 自己的理解
+- pin在stack上: Pin<&mut T>/Pin<& T>, 通过unsafe Pin::new_unchecked或者通过pin_utils宏或者tokio::pin!宏
+- pin在heap上: Pin<Box<T>>, 通过Box::pin获得，不需要unsafe
+- 为什么pin在stack上需要unsafe: 因为Pin<&'a mut T>只能确保在生命周期'a内T被pin住，而无法保证'a结束之后T是否被移动
+- 接上一条，杜绝此问题的方式是用Pin<&'a mut T>遮蔽原始的T(或直接使用一些宏),例如：
+```rust
+// test1 is safe to move before we initialize it
+let mut test1 = Test::new("test1");
+// Notice how we shadow `test1` to prevent it from being accessed again
+let mut test1 = unsafe { Pin::new_unchecked(&mut test1) };
+```
+- 接上一条，Pin<Box<T>>拥有T的所有权，不存在此问题
+
+- 如果F:Future, 那么Pin<&mut T>或Pin<Box<F>>也满足Future，并且满足Unpin
+- 接上一条，所以某些异步场景下，要求参数是Future+Unpin的，但是async block生成的future默认是!Unpin的，此时就需要把该future pin到stack或heap上
+
+### 为什么await一个future的可变引用(&mut F)，必须要先pin
+- 按照future crate中定义，如果F:Future, &mut F也满足Future的前提是 F: Unpin
+- 接上一条，async block生成的future默认是!Unpin的，所以要先pin住，让它变成Unpin
+- 这么做的目的是?? 个人理解(不百分百确定): 
+    1. poll参数的Pin只能确保在await的过程中future不被移动，因为Pin的生命周期是poll方法内部
+    2. 但是其无法保证在await之后future不被移动，因此需要先把future pin住
+    3. 如果是await future本身而不是引用，则不存在此问题，await会消耗该future
+    4. 如果future本身是unpin的，那它也不在意是否被移动
+
+### 说future被pin到stack上是否表示future存储在stack上？
+- 我认为不是的，最外层的future(属于task)一般存储在heap上(且被pin住)，所以它内部的future也存储在heap上
+- 如果说某个future被pin在stack上，并且它真的存储在stack上，那么在它顶层task被调度的时候，它必然会被移动，因为每个线程都有自己的stack，这是违背Pin原则的
+- 所以我认为的pin到stack和heap的区别是，pin到heap需要额外的申请一片堆内存来放置需要被pin住的对象，而pin到stack上则不需要，因为它已经存在于它所谓的“stack”内存上了
+
+### Box::pin从栈上移动到堆，这个过程也会move，是否会导致自引用future失效？？？
+- 目前我也不知道，只是猜测编译器做了特殊处理，让future移动到box中后自引用依然有效
+
