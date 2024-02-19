@@ -31,7 +31,7 @@ struct AsyncFuture {
 5. 接上一条，例如：Pin<&mut u8> 跟 &mut u8 实际上并无区别，可以通过Pin<&mut u8>获取&mut u8。因为u8类型并没有实现!Unpin特征
 6. 实现了!Unpin特征的类型被Pin住之后，编译器利用类型系统禁止某些操作(只对T:!Unpin进行约束)，例如获得 T和&mut T，但是&T是允许的（它无法造成T被move）
 7. 上一条中被禁止的行为可以通过unsafe被允许
-7. Pin<P>本身是Unpin的(几乎)
+7. Pin<P>本身是Unpin的
 
 ### Unpin特征对比Sync/Send
 1. 都是标记特征( marker trait )，该特征未定义任何行为，非常适用于标记
