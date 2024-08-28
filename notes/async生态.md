@@ -95,7 +95,7 @@ async fn main() {
 }
 ```
 
-- select内部实现类似于一个future，它的各个branch对应的多个future被包含在内，每次对它进行poll时，它会依次(或随机)poll内部各个branch的future
+- select内部实现类似于一个future，它的各个branch对应的多个future被包含在内，每次对它进行poll时，它会依次(或随机顺序)poll内部各个branch的future
 - 接上一条，当其中一个branch返回ready时，整个select future返回ready(且该future的结果符合对应的pattern)，其他branch将会被drop掉，不再对其进行poll
 - select每个branch对应的future会并发执行，直到其中一个完成，且该future的结果符合对应的pattern,则该future的结果会绑定到对应的pattern上
 - 接上一条，对应的branch的handler将会被执行，且handler内部可以访问对应pattern绑定的值
@@ -180,7 +180,7 @@ async fn main() -> io::Result<()> {
 ```
 
 #### select对外部数据的借用规则
-- 允许多个branch对应的async block不可变借用外部数据，但是不能同时可变借用(因为一个async代表着一个future，有自己的生命周期)
+- 允许多个branch对应的async block不可变借用外部数据，但是不能同时可变借用(因为一个async代表着一个future，有自己的生命周期, 并且多个branch是会并发执行)
 - 接上一条，handler中没有此限制。因为只会有一个handler会被执行
 - 接上一条，允许async block和handler内同时对一个外部变量进行不可变借用，因为他们不会交叉执行
 
@@ -218,7 +218,7 @@ async fn main() {
 - 它们都可以让future并发执行（注意区分并发和并行的区别）
 - tokio::spawn会产生一个新的task(异步运行时调度的基本单位)，而select的各个branch只会在一个Task内部
 - tokio::spawn产生的Task可能会在多个线程中并行执行，因此他们会和产生一个新线程有相同的限制：必须拥有数据(no borrowing)
-- select的各个branch不会并行执行，也不会有no borrowing的限制
+- select的各个branch不会并行执行，也不会有no borrowing的限制(多个branch引用同一个外部变量只能是不可变引用)
 
 
 #### Streams特征
